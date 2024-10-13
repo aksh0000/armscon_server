@@ -1,13 +1,8 @@
-const Tesseract = require('tesseract.js');
-const fs = require('fs');
+const express=require('express');
+const app=express();
 
-
-
-// Call the main function and handle the result
-payment_verification('ssws4.jpg')
-  .then(result => {
-    console.log("Verification result:", result);
-  })
-  .catch(err => {
-    console.error("Error during verification:", err);
-  });
+app.get('/',(req,res)=>{
+  res.write("Working just fine");
+  res.end();
+})
+app.listen(8000)
