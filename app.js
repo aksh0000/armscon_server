@@ -8,16 +8,19 @@ const multer = require('multer');
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
 const Tesseract = require('tesseract.js');
+const nodemailer = require('nodemailer');
+let user_dp=""
+
 // Middleware Setup
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
 // MySQL Connection (Connect once globally)
 var con = mysql.createConnection({
-  host: 'database-1.cfes600acmp1.eu-north-1.rds.amazonaws.com',
+  host: 'database-1.c5yiagekykl4.ap-south-1.rds.amazonaws.com',
   user: 'admin',
   password: '##QazWsxEdc$$123',
-  database: 'database-1',
+  database: 'armscon_database',
   port: 3306
 });
 
@@ -46,10 +49,45 @@ app.get('/int',(req,res)=>{
   res.write("Working just fine! with AWS!");
   res.end();
 })
+
+
+function send_mail_to_user(name,plan){
+
+  let transporter = nodemailer.createTransport({
+    service: 'gmail', // You can use any other email service
+    auth: {
+        user: 'bdevi2472@gmail.com',
+        pass: 'nluw aago wwjf imso'
+    }
+});
+
+// Email options
+let mailOptions = {
+    from: 'bdevi2472@gmail.com',
+    to: 'ruthlessdestroyer085@gmail.com',
+    subject: 'Confirmation mail from ARMSCON 2024',
+    html: `<h1>Hey ${name} </h1><p>We welcome you to the sail with us, let's sail together this year at ARMSCON 2024</p> 
+           <h2>Your plan: ${plan} has been activated</h2><br/>
+           If you have any queries then feel free to contact:<br/> 
+           <b>AKSHANSH KUMAR GANDAS: 6396233297</b><br/> 
+           <b>YASH GOYAL: 8447566490</b><br/> 
+           <b>RAHUL VERMA: 9817197984</b><br/><br/><br/> 
+           <small>&copy;ARMSCON 2024</small>`
+};
+
+// Send the email
+transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+        return console.log(error);
+    }
+    console.log('Email sent: ' + info.response);
+});
+
+}
 // Signup Route
 app.post('/signup', upload.fields([{ name: 'dp', maxCount: 1 }, { name: 'screenshot', maxCount: 1 }]), (req, res) => {
   try {
-    const user_data = JSON.parse(req.body.user_data);
+    const user_data = JSON.parse(req.body.user_data);   
     const fullname = user_data.personInfo.fullname;
     const phonenumber = user_data.personInfo.phoneNumber;
     const email = user_data.personInfo.email;
@@ -61,11 +99,24 @@ app.post('/signup', upload.fields([{ name: 'dp', maxCount: 1 }, { name: 'screens
     const full_day_workshops = user_data.plans.fullday_workshops;
     const dp_name = req.files['dp'] ? req.files['dp'][0].originalname : '';
     const screenshot_name = req.files['screenshot'] ? req.files['screenshot'][0].originalname : '';
-
+    let verified=false;
+    let mode_of_payment="";
+    console.log(req.files);
+    user_dp=req.files['dp'];
+    const entertainment=user_data.entertainment.entertainment;
     // SQL Insert Query
-    const sql = `INSERT INTO users (fullname, phonenumber, email, college, year, course, plan, half_day_workshops, full_day_workshops, dp, screenshot)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const values = [fullname, phonenumber, email, college, year, course, plan, half_day_workshops, full_day_workshops, dp_name, screenshot_name];
+    if(screenshot_name){
+      mode_of_payment="upi";
+      verified=true;
+
+    }
+    else{
+      mode_of_payment="cash"
+      verified=false;
+    }
+    const sql = `INSERT INTO users (fullname, phonenumber, email, college, year, course, plan, half_day_workshops, full_day_workshops,entertainment ,dp,mode_of_payment,screenshot,varification)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)`;
+    const values = [fullname, phonenumber, email, college, year, course, plan, half_day_workshops, full_day_workshops,entertainment,dp_name, mode_of_payment,screenshot_name,verified];
     payment_verification(req.files['screenshot'][0].originalname)
         .then(result => {
           
@@ -78,6 +129,7 @@ app.post('/signup', upload.fields([{ name: 'dp', maxCount: 1 }, { name: 'screens
               console.log("1 record inserted", req.files['screenshot'][0].originalname);
               
               res.status(200).json({ message: 'Signup successful', insertedId: result.insertId });
+              send_mail_to_user(fullname,plan)
             });
           }
           else{
@@ -110,8 +162,8 @@ app.post("/login", (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Create a JWT token
-    const token = jwt.sign({ userData: results[0] }, "$QazWsxEdc@123", { expiresIn: '1h' });
+    
+    const token = jwt.sign({ userData: results[0] , dp:user_dp}, "$QazWsxEdc@123", { expiresIn: '1h' });
     console.log(results)
     res.status(200).json({ message: 'Login successful', token });
   });
@@ -164,7 +216,7 @@ async function payment_verification(path) {
       imagePath,
       'eng',
       {
-        logger: info => console.log(info) // Log progress if desired
+        //logger: info => console.log(info) // Log progress if desired
       }
     );
 
@@ -187,7 +239,7 @@ async function get_payment_gateway(text) {
   } else if (array_of_words.some(line => line.includes("Google transaction ID"))) {
     return await gpay(array_of_words, 2);
   } else {
-    console.log("PhonePe");
+    console.log("This screenshot is not valid!");
     return false;
   }
 }
@@ -244,6 +296,6 @@ function check_upi_trans_id(upi_trans_id) {
     });
   });
 }
-app.listen(process.env.PORT, () => {
+app.listen(80, () => {
   console.log('Server running on http://localhost:8000');
 });
